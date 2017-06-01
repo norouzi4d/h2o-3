@@ -9,6 +9,11 @@ public class RegisterRestApi extends water.api.AbstractRegister {
   public void register(String relativeResourcePath) {
     XGBoost xgBoostMB = new XGBoost(true);
     // Register XGBoost model builder REST API
-    registerModelBuilder(xgBoostMB, SchemaServer.getExperimentalVersion());
+    registerModelBuilder(xgBoostMB, SchemaServer.getStableVersion());
+  }
+
+  @Override
+  public String getName() {
+    return "XGBoost";
   }
 }

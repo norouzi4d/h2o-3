@@ -144,7 +144,9 @@ ext {
     // They can be enabled by passing parameter "-Pwith{componentName}=true"
     // For example, `-PwithVisDataServer=true -PvisDataServerVersion=3.14.27`
     optionalComponents = [
-            [name: "visDataServer", version : "1.0.0-SNAPSHOT", enabled: false ]
+            // NAME | VERSION | IS ENABLED? | HAS GENMODEL PART ?
+            [name: "visDataServer", version : "1.0.0-SNAPSHOT", enabled: false, genmodel: false ],
+            [name: "xgboost", version: "$version", enabled: true, genmodel: true ]
     ]
 
     //
