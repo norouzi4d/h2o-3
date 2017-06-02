@@ -1,5 +1,6 @@
 package water.rapids.ast.prims.reducers;
 
+import hex.DMatrix;
 import hex.SplitFrame;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -10,8 +11,9 @@ import water.TestUtil;
 import water.fvec.Frame;
 import water.rapids.Rapids;
 import water.rapids.Val;
+import water.util.FrameUtils;
 
-import java.util.Random;
+import java.util.Arrays;
 
 import static org.junit.Assert.assertTrue;
 
@@ -20,7 +22,7 @@ import static org.junit.Assert.assertTrue;
 	*/
 public class AstTopNTest extends TestUtil {
 		static Frame _train;    // store training data
-		public Random _rand = new Random();
+		double _tolerance = 1e-12;
 
 		@BeforeClass
 		public static void setup() {   // randomly generate a frame here.
@@ -38,11 +40,10 @@ public class AstTopNTest extends TestUtil {
 		@Test
 		public void TestTopBottomN() {
 				Scope.enter();
-				int[] checkPercent = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}; // complete test
+				double[] checkPercent = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}; // complete test
 				int numRuns = 4;
-				int testPercent = 0;      // store test percentage
+				double testPercent = 0;      // store test percentage
 				Frame topLong = null, topFloat = null, bottomLong = null, bottomFloat = null;
-				double tolerance = 1e-12;
 
 				// load in the datasets with the answers
 				_train = parse_test_file(Key.make("topbottom"), "smalldata/jira/TopBottomN.csv.zip");
@@ -61,17 +62,17 @@ public class AstTopNTest extends TestUtil {
 						for (int index = 0; index < numRuns; index++) { // randomly choose 4 percentages to test
 								//testPercent = checkPercent[_rand.nextInt(checkPercent.length)];
 								testPercent = checkPercent[index];
-//								testTopBottom(topLong, testPercent, 0, "0", tolerance);
-//								testTopBottom(topFloat, testPercent, 0, "1", tolerance);  // test top % Float
-								testTopBottom(bottomLong, testPercent, 1, "0", tolerance);  // test bottom % Long
-								testTopBottom(bottomFloat, testPercent, 1, "1", tolerance);  // test bottom % Float
+								testTopBottom(topLong, testPercent, 0, "0", _tolerance);
+								testTopBottom(topFloat, testPercent, 0, "1", _tolerance);  // test top % Float
+								testTopBottom(bottomLong, testPercent, 1, "0", _tolerance);  // test bottom % Long
+								testTopBottom(bottomFloat, testPercent, 1, "1", _tolerance);  // test bottom % Float
 						}
 				} finally {
 						Scope.exit();
 				}
 		}
 
-		public static void testTopBottom(Frame topBottom, int testPercent, int getBottom, String columnIndex,
+		public void testTopBottom(Frame topBottom, double testPercent, int getBottom, String columnIndex,
 																																			double tolerance) {
 				Scope.enter();
 				Frame topBN = null, topBL = null;
@@ -91,17 +92,24 @@ public class AstTopNTest extends TestUtil {
 		/*
 		Helper function to compare test frame result with correct answer
 			*/
-		public static void checkTopBottomN(Frame answerF, Frame grabF, double tolerance, int getBottom) {
+		public void checkTopBottomN(Frame answerF, Frame grabF, double tolerance, int getBottom) {
 				Scope.enter();
 				try {
 						double nfrac = (getBottom > 0) ? 1.0 * grabF.numRows() / answerF.numRows() : (1 - 1.0 * grabF.numRows() / answerF.numRows());   // translate percentage to actual fraction
+
 						SplitFrame sf = new SplitFrame(answerF, new double[]{nfrac, 1 - nfrac}, new Key[]{
 														Key.make("topN.hex"), Key.make("bottomN.hex")});
 						// Invoke the job
 						sf.exec().get();
 						Key[] ksplits = sf._destination_frames;
 						Frame topN = (Frame) ((getBottom > 0) ? DKV.get(ksplits[0]).get() : DKV.get(ksplits[1]).get());
-						assertTrue(isIdenticalUpToRelTolerance(topN, grabF, tolerance));
+						double[] bottomN = FrameUtils.asDoubles(grabF.vec(0));
+						Arrays.sort(bottomN);
+						Frame sortedF = new water.util.ArrayUtils().frame(bottomN);
+						Scope.track(sortedF);
+						Frame sortedFT = DMatrix.transpose(sortedF);
+						Scope.track(sortedFT);
+						assertTrue(isIdenticalUpToRelTolerance(topN, sortedFT, tolerance));
 						Scope.track(topN);
 						Scope.track_generic(ksplits[1].get());
 				} finally {
