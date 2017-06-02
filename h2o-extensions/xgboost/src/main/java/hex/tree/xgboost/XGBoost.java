@@ -7,6 +7,7 @@ import hex.ScoreKeeper;
 import hex.glm.GLMTask;
 import ml.dmlc.xgboost4j.java.Booster;
 import ml.dmlc.xgboost4j.java.DMatrix;
+import ml.dmlc.xgboost4j.java.NativeLibLoader;
 import ml.dmlc.xgboost4j.java.XGBoostError;
 import water.H2O;
 import water.Job;
@@ -43,12 +44,29 @@ import static water.H2O.technote;
 public class XGBoost extends ModelBuilder<XGBoostModel,XGBoostModel.XGBoostParameters,XGBoostOutput> {
   @Override public boolean haveMojo() { return true; }
 
-  static boolean haveBackend() {
-    return true;
-  }
-
   @Override public BuilderVisibility builderVisibility() {
     return haveBackend() ? BuilderVisibility.Stable : BuilderVisibility.Experimental;
+  }
+
+  //
+  // FIXME: moved into XGBoost core extension (see PUBDEV-4548)
+  //
+  private static boolean haveBackend() {
+    // Check if some native library was loaded
+    try {
+      String libName = NativeLibLoader.getLoadedLibraryName();
+      if (libName != null) {
+        Log.info("Found XGBoost backend with library: " + libName);
+        return true;
+      } else {
+        Log.warn("Cannot get XGBoost backend!");
+        return false;
+      }
+    } catch (IOException e) {
+      // Ups no lib loaded or load failed
+      Log.warn("Cannot initialize XGBoost backend!", e);
+      return false;
+    }
   }
 
   /**
